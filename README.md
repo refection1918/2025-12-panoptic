@@ -34,14 +34,14 @@ V12 findings will be posted in this section within the first two days of the com
   - [Obsidian Audits](https://github.com/ObsidianAudits/audits/blob/main/2025-10-panoptic-v2.pdf)
   - [Nethermind](https://github.com/code-423n4/2025-12-panoptic/blob/main/audits/NM_0701_Panoptic_DRAFT.pdf)
 - **Documentation:**
-  - <https://docs.panoptic.xyz/>
+  - https://docs.panoptic.xyz/
   - [Litepaper](https://intro.panoptic.xyz)
   - [Whitepaper](https://paper.panoptic.xyz/)
   - [Blog](https://www.panoptic.xyz/blog)
   - [YouTube](https://www.youtube.com/@Panopticxyz)
-- **Website:** <https://www.panoptic.xyz>
-- **X/Twitter:** <https://twitter.com/Panoptic_xyz>
-- **Codebase Walkthrough:** <https://www.youtube.com/watch?v=Qsre4XiD_t4>
+- **Website:** https://www.panoptic.xyz
+- **X/Twitter:** https://twitter.com/Panoptic_xyz
+- **Codebase Walkthrough:** https://www.youtube.com/watch?v=Qsre4XiD_t4
 - **Original Repo**: https://github.com/panoptic-labs/panoptic-v1-core
 - **Further Reading**: Panoptic has been presented at conferences and was conceived with the first Panoptic's Genesis blog post in mid-summer 2021:
   - [Panoptic @ EthCC 2023](https://www.youtube.com/watch?v=9ubpnQRvxY8)
