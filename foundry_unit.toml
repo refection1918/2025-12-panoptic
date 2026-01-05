@@ -1,0 +1,12 @@
+[profile.default]
+src = 'contracts'
+test = 'test/foundry'
+out = 'out'
+libs = ['lib']
+no_match_path = "contracts/*"
+evm_version = 'cancun'
+optimizer = true
+optimizer_runs = 9999
+viaIR = false
+gas_limit = 9223372036854775807
+fs_permissions = [{ access = "read", path = "./"}]

@@ -1,0 +1,26 @@
+{
+  "lib/clones-with-immutable-args": {
+    "rev": "196f1ecc6485c1bf2d41677fa01d3df4927ff9ce"
+  },
+  "lib/forge-std": {
+    "rev": "1eea5bae12ae557d589f9f0f0edae2faa47cb262"
+  },
+  "lib/openzeppelin-contracts": {
+    "rev": "0a25c1940ca220686588c4af3ec526f725fe2582"
+  },
+  "lib/solady": {
+    "rev": "adfad66656a6ef8c65b2a412d849bbf7f7a59842"
+  },
+  "lib/solmate": {
+    "rev": "eaa7041378f9a6c12f943de08a6c41b31a9870fc"
+  },
+  "lib/v3-core": {
+    "rev": "6562c52e8f75f0c10f9deaf44861847585fc8129"
+  },
+  "lib/v3-periphery": {
+    "rev": "b325bb0905d922ae61fcc7df85ee802e8df5e96c"
+  },
+  "lib/v4-core": {
+    "rev": "e50237c43811bd9b526eff40f26772152a42daba"
+  }
+}
