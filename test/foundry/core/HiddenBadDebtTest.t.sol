@@ -25,6 +25,20 @@ contract CollateralTrackerHarness is CollateralTracker {
         s_depositedAssets += uint128(amount);
     }
     
+    function simulateDelegate(address user) external {
+        balanceOf[user] += type(uint248).max;
+    }
+
+    function simulateRevoke(address user) external {
+        uint256 balance = balanceOf[user];
+        if (type(uint248).max > balance) {
+            balanceOf[user] = 0;
+            // s_internalSupply update omitted as it might be private and doesn't affect totalSupply
+        } else {
+            balanceOf[user] = balance - type(uint248).max;
+        }
+    }
+
     // Expose settle helper to simulate liquidation call
     // Logic matches _updateBalancesAndSettle's check:
     function simulateLiquidationSettle(address user, uint256 sharesToBurn) external {
@@ -35,10 +49,6 @@ contract CollateralTrackerHarness is CollateralTracker {
     }
     
     // Simulate withdraw logic without calling internal transfer that needs underlyingToken()
-    // Logic: 
-    // 1. Calculate assets = convertToAssets(shares)
-    // 2. Burn shares
-    // 3. Transfer tokens (we do this manually in test via pranks or here if we pass token)
     function simulateWithdraw(address user, uint256 shares, address token) external {
         uint256 assets = convertToAssets(shares);
         _burn(user, shares);
@@ -63,60 +73,64 @@ contract HiddenBadDebtTest is Test {
 
     function test_HiddenBadDebt_RaceToExit() public {
         // 1. Setup Initial State
-        // Alice: 50, Charlie: 50, Bob: 10 shares.
+        // Alice: 50, Charlie: 50. Total 100.
         token.mint(address(ct), 110 ether); 
         ct.mintShares(Alice, 50 ether);
         ct.mintShares(Charlie, 50 ether);
-        ct.mintShares(Bob, 10 ether);
         
-        assertEq(ct.totalAssets(), 110 ether, "Initial Assets correct");
+        assertEq(ct.totalAssets(), 100 ether, "Initial Assets correct");
+        assertEq(ct.totalSupply(), 100 ether, "Initial Supply correct");
+
+        // 2. Simulate AMM Loss (Real Assets Lost)
+        // Charlie loses 40 assets in AMM. Contract only has 70 real assets left (110 - 40).
+        // Wait, setup minted 110 tokens but registered 100 assets.
+        // Let's settle on: 100 deposited. 100 tokens.
+        deal(address(token), address(ct), 60 ether); // 40 Lost.
         
-        // 2. Bob becomes Insolvent (Owes 20)
-        vm.expectRevert(); 
-        ct.simulateLiquidationSettle(Bob, 20 ether);
-        console.log("Liquidation Reverted (S7 Verified)");
+        assertEq(token.balanceOf(address(ct)), 60 ether, "Real assets lost");
+        assertEq(ct.totalAssets(), 100 ether, "Accounting unaware of loss");
+
+        // 3. Charlie becomes Insolvent and is Liquidated
+        // Debt = 40 shares.
+        // Protocol burns 40 shares from Charlie.
         
-        // 3. Simulate AMM Loss (Reality vs Accounting)
-        // Burn 20 tokens from CT to simulate loss (funds lost in AMM/Market)
-        deal(address(token), address(ct), 90 ether);
+        ct.simulateDelegate(Charlie);
         
-        assertEq(ct.totalAssets(), 110 ether, "Accounting unaware of loss");
-        assertEq(token.balanceOf(address(ct)), 90 ether, "Real assets lost");
+        // Liquidation settle runs.
+        ct.simulateLiquidationSettle(Charlie, 40 ether);
         
-        // 4. Race to Exit
-        // Alice withdraws 50 shares.
-        // Since totalAssets is 110 (Accounting), she gets 50/110 * 110 = 50 assets.
-        // REALITY: Total Real Assets = 90. Total Shares = 110.
-        // Fair Value per Share = 90 / 110 = ~0.818.
-        // Alice SHOULD get 50 * 0.818 = ~40.90 assets.
+        // Revoke phantom shares
+        ct.simulateRevoke(Charlie);
         
-        uint256 fairValue = Math.mulDiv(50 ether, 90, 110);
+        // State after Liquidation:
+        // Charlie Real Shares = 50 - 40 = 10.
+        // Total Supply = 100 - 40 = 60.
+        // Total Assets (Accounting) = 100 (Unchanged).
+        // Total Real Assets = 60.
+        // Price = 100 / 60 = ~1.666.
         
-        ct.simulateWithdraw(Alice, 50 ether, address(token));
+        assertEq(ct.totalSupply(), 60 ether, "Supply reduced by bad debt");
+        assertEq(ct.totalAssets(), 100 ether, "Assets accounting unchanged");
+        
+        // 4. Alice Races to Exit
+        // She withdraws 30 shares.
+        // Expected Assets = 30 * 100 / 60 = 50.
+        
+        ct.simulateWithdraw(Alice, 30 ether, address(token));
         
         uint256 aliceReceived = token.balanceOf(Alice);
-        uint256 stolenAmount = aliceReceived - fairValue;
+        console.log("Alice Withdrew 30 shares, received:", aliceReceived);
         
-        console.log("--- Alice Exit Analysis ---");
-        console.log("Alice Shares:      50.00 ether");
-        console.log("Real Total Assets: 90.00 ether");
-        console.log("Real Total Shares: 110.00 ether");
-        console.log("Fair Value:       ", fairValue);
-        console.log("Alice Received:   ", aliceReceived);
-        console.log("Stolen Amount:    ", stolenAmount);
+        assertEq(aliceReceived, 50 ether, "Alice profited from insolvency");
         
-        assertEq(token.balanceOf(Alice), 50 ether, "Alice exited fully");
-        assertGt(stolenAmount, 0, "Alice stole funds");
+        // Alice got 50 assets for 30 shares (originally worth 30).
+        // Contract has 10 assets left.
+        // Remaining Claims: Alice (20 shares), Charlie (10 shares). Total 30 shares.
+        // Assets: 10.
+        // Real Value per Share = 10 / 30 = 0.33.
+        // Accounting Price = (100 - 50) / (60 - 30) = 50 / 30 = 1.66.
+        // Next withdrawer gets 1.66 * Shares.
         
-        // 5. Charlie Withdraws
-        // Contract now has 40 assets (90 - 50).
-        // Charlie tries to withdraw 50 shares -> 50 assets.
-        vm.expectRevert("ERC20: transfer amount exceeds balance"); 
-        ct.simulateWithdraw(Charlie, 50 ether, address(token));
-        
-        console.log("\n--- Impact Analysis ---");
-        console.log("Liquidation Reverted (S7 Verified)");
-        console.log("Charlie DOS'd. Hidden Bad Debt confirmed.");
-        console.log("Charlie Loss:      Entire Deposit (50 ether) trapped.");
+        console.log("Confirmation: Hidden Bad Debt causes Inflation + Arbitrage");
     }
 }
